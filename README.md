@@ -12,13 +12,20 @@
 pyspark==3.5.0
 pandas==2.1.0
 matplotlib==3.7.2
+xmltodict==0.13.0
 
 Установка зависимостей
 
 Рекомендуется использовать виртуальное окружение. Установите зависимости командой:
 ```bash
 
-pip install pyspark==3.5.0 pandas==2.1.0 matplotlib==3.7.2
+pip install pyspark==3.5.0 pandas==2.1.0 matplotlib==3.7.2 xmltodict==0.13.0
+
+```
+или:
+```bash
+
+pip install -r requirements.txt
 
 ```
 

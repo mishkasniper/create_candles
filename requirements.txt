@@ -1,0 +1,8 @@
+# Версия Python
+python==3.10.12
+
+# Основные зависимости
+pyspark==3.5.0
+pandas==2.1.0
+matplotlib==3.7.2
+xmltodict==0.13.0
