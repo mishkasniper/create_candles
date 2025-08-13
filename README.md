@@ -34,7 +34,7 @@ pip install -r requirements.txt
 Основной скрипт:
 ```bash
 
-python main.py <input_file> <output_dir> [--config <config_file>]
+python main.py <input_file> <output_dir> [--config <config_file>] [--visual]
 ```
 Где:
 
@@ -43,6 +43,8 @@ python main.py <input_file> <output_dir> [--config <config_file>]
     <output_dir> - директория для сохранения результатов
 
     --config (опционально) - путь к XML-файлу конфигурации
+
+    --visual (опционально) - визуализация свечевых графиков
 
 
 
@@ -60,11 +62,13 @@ SVH1,F,20110111100000080,255223067,30.46000,1,8714,S
 
 Для каждого финансового инструмента создается отдельный CSV-файл в формате:
 
-SYMBOL,MOMENT,OPEN,HIGH,LOW,CLOSE
+MOMENT,OPEN,HIGH,LOW,CLOSE
+
+(опционально) Создается png изображение для каждого инструмента
 
 Пример:
 
-GDH1,20110111100000000,1407.0,1407.0,1379.0,1379.3
+20110111100000000,1407.0,1407.0,1379.0,1379.3
 
 Конфигурационный файл
 

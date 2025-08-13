@@ -5,7 +5,7 @@ import argparse
 import os
 import shutil
 import xml.etree.ElementTree as ET
-
+import visualize 
 
 # Функция для загрузки параметров из конфигурационного файла
 def load_config(config_path):
@@ -160,6 +160,7 @@ def main():
     parser.add_argument("input", help="Путь к входному CSV-файлу")
     parser.add_argument("output", help="Директория для результатов")
     parser.add_argument("--config", help="Путь к config.xml (опционально)")
+    parser.add_argument("--visual", help="При добавлении этого параметра будут нарисованы свечевые графики", action="store_true")
     args = parser.parse_args()
 
     # Параметры по умолчанию
@@ -175,6 +176,9 @@ def main():
         candles_df.count()
         print("Обработка завершена. Сохранение результатов...")
         save_results(candles_df, args.output)
+        if(args.visual):
+            print("Генерация графиков...")
+            visualize.plot_all_candles(params['candle.width'], args.output, os.path.join(args.output, 'plots'))
     except Exception as e:
         print(f"Ошибка: {str(e)}")
     finally:
