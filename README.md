@@ -16,6 +16,7 @@ matplotlib==3.7.2
 Установка зависимостей
 
 Рекомендуется использовать виртуальное окружение. Установите зависимости командой:
+bash
 
 pip install pyspark==3.5.0 pandas==2.1.0 matplotlib==3.7.2
 
@@ -24,6 +25,7 @@ pip install pyspark==3.5.0 pandas==2.1.0 matplotlib==3.7.2
 Запуск программы
 
 Основной скрипт:
+bash
 
 python main.py <input_file> <output_dir> [--config <config_file>]
 
@@ -45,16 +47,19 @@ text
 #SYMBOL,SYSTEM,MOMENT,ID_DEAL,PRICE_DEAL,VOLUME,OPEN_POS,DIRECTION
 
 Пример строки:
+text
 
 SVH1,F,20110111100000080,255223067,30.46000,1,8714,S
 
 Формат выходных данных
 
 Для каждого финансового инструмента создается отдельный CSV-файл в формате:
+text
 
 SYMBOL,MOMENT,OPEN,HIGH,LOW,CLOSE
 
 Пример:
+text
 
 GDH1,20110111100000000,1407.0,1407.0,1379.0,1379.3
 
@@ -63,6 +68,7 @@ GDH1,20110111100000000,1407.0,1407.0,1379.0,1379.3
 Программа поддерживает настройку параметров через XML-файл.
 
 Пример config.xml:
+xml
 
 <configuration>
     <property>
