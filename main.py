@@ -43,6 +43,7 @@ def get_df_from_csv(spark, path, params):
         raise FileNotFoundError(f"Файл {path} не найден")
     
     df = spark.read.csv(path, header=True, inferSchema=False, sep=",")
+    df = df.withColumn("PRICE_DEAL", F.col("PRICE_DEAL").cast("double"))
 
     if df.isEmpty():
         raise ValueError(f"Файл {path} пуст")
@@ -85,26 +86,17 @@ def make_candles_df(df, params):
     candle_width = params['candle.width']
     df = df.withColumn("start_candle_ms", (F.floor(F.col("total_ms") / candle_width) * candle_width)) 
 
-    # Создаём окна для агрегации
-    window_asc = Window.partitionBy("SYMBOL", "date_str", "start_candle_ms").orderBy("MOMENT", "ID_DEAL")
-    window_desc = Window.partitionBy("SYMBOL", "date_str", "start_candle_ms").orderBy(F.desc("MOMENT"), F.desc("ID_DEAL"))
+    # Агрегируем HIGH/LOW/OPEN/CLOSE
+    w = Window.partitionBy("SYMBOL", "date_str", "start_candle_ms").orderBy("total_ms", "ID_DEAL")
+    w = w.rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
 
-    # Вычисляем OPEN и CLOSE
-    df = df.withColumn("rank_asc", F.row_number().over(window_asc))
-    df = df.withColumn("rank_desc", F.row_number().over(window_desc))
+    df = df.withColumn("OPEN", F.first("PRICE_DEAL").over(w))
+    df = df.withColumn("CLOSE", F.last("PRICE_DEAL").over(w))
+    df = df.withColumn("HIGH", F.max("PRICE_DEAL").over(w))
+    df = df.withColumn("LOW", F.min("PRICE_DEAL").over(w))
 
-    open_df = df.filter(F.col("rank_asc") == 1).select("SYMBOL", "date_str", "start_candle_ms", F.col("PRICE_DEAL").alias("OPEN"))
-    close_df = df.filter(F.col("rank_desc") == 1).select("SYMBOL", "date_str", "start_candle_ms", F.col("PRICE_DEAL").alias("CLOSE"))
-
-    # Агрегируем HIGH/LOW
-    agg_df = df.groupBy("SYMBOL", "date_str", "start_candle_ms").agg(
-        F.min("PRICE_DEAL").alias("LOW"),
-        F.max("PRICE_DEAL").alias("HIGH")
-    )
-
-    # Собираем все компоненты
-    result_df = agg_df.join(open_df, ["SYMBOL", "date_str", "start_candle_ms"], "left")
-    result_df = result_df.join(close_df, ["SYMBOL", "date_str", "start_candle_ms"], "left")
+    # Убираем дубликаты по ключу свечи, оставляем только одну строку
+    result_df = df.dropDuplicates(["SYMBOL", "date_str", "start_candle_ms"])
 
     # Конвертируем start_candle_ms в строку времени
     result_df = result_df.withColumn("hours", (F.col("start_candle_ms") / 3600000).cast("int"))
@@ -117,10 +109,10 @@ def make_candles_df(df, params):
     # Форматируем компоненты
     result_df = result_df.withColumn("time_str", 
         F.concat(
-            F.lpad("hours", 2, "0"),
-            F.lpad("minutes", 2, "0"),
-            F.lpad("seconds", 2, "0"),
-            F.lpad("millis", 3, "0")
+            F.lpad(F.col("hours"), 2, "0"),
+            F.lpad(F.col("minutes"), 2, "0"),
+            F.lpad(F.col("seconds"), 2, "0"),
+            F.lpad(F.col("millis"), 3, "0")
         )
     )
 
@@ -132,37 +124,34 @@ def make_candles_df(df, params):
     result_df = result_df.withColumn("CLOSE", F.round("CLOSE", 1))
 
     # Выбираем финальные колонки
-    final_df = result_df.select("SYMBOL", "MOMENT", "OPEN", "HIGH", "LOW", "CLOSE")
+    final_df = result_df.select("SYMBOL", "MOMENT", "OPEN", "HIGH", "LOW", "CLOSE").orderBy("SYMBOL", "MOMENT")
     return final_df
 
 def save_results(final_df, output_dir):
-    
-    # Создаём директорию, если её нет
+
     os.makedirs(output_dir, exist_ok=True)
 
-    # Получаем уникальные символы
-    symbols = [row.SYMBOL for row in final_df.select("SYMBOL").distinct().collect()]
+    # Сохраняем все символы
+    temp_path = os.path.join(output_dir, "_temp_all")
+    final_df.repartition("SYMBOL").write.partitionBy("SYMBOL").csv(
+        temp_path, mode="overwrite", header=False
+    )
 
-    for symbol in symbols:
-        # Фильтруем данные для символа
-        symbol_df = final_df.filter(F.col("SYMBOL") == symbol)
-        
-        # Временный путь для записи
-        temp_path = os.path.join(output_dir, f"temp_{symbol}")
-        
-        # Записываем во временную директорию
-        symbol_df.coalesce(1).write.csv(temp_path, mode="overwrite", header=False)
-        
-        # Находим и переименовываем файл
-        for file in os.listdir(temp_path):
-            if file.startswith("part-"):
-                os.rename(
-                    os.path.join(temp_path, file),
-                    os.path.join(output_dir, f"{symbol}.csv")
-                )
-        
-        # Удаляем временную директорию
-        shutil.rmtree(temp_path)
+    # Проходим по сгенерированным папкам SYMBOL=XXX
+    for folder in os.listdir(temp_path):
+        folder_path = os.path.join(temp_path, folder)
+        if os.path.isdir(folder_path) and folder.startswith("SYMBOL="):
+            symbol = folder.split("=", 1)[1]
+            # Ищем CSV-файл в папке
+            for file in os.listdir(folder_path):
+                if file.startswith("part-"):
+                    os.rename(
+                        os.path.join(folder_path, file),
+                        os.path.join(output_dir, f"{symbol}.csv")
+                    )
+
+    # Удаляем временную директорию
+    shutil.rmtree(temp_path)
 
     print(f"Результаты сохранены в: {output_dir}")
 def main():
@@ -182,6 +171,8 @@ def main():
         print("Обработка начата...")
         df = get_df_from_csv(spark, args.input, params)
         candles_df = make_candles_df(df, params)
+        candles_df.persist()
+        candles_df.count()
         print("Обработка завершена. Сохранение результатов...")
         save_results(candles_df, args.output)
     except Exception as e:
