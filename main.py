@@ -133,14 +133,17 @@ def save_results(final_df, output_dir):
 
     # Сохраняем все символы
     temp_path = os.path.join(output_dir, "_temp_all")
-    final_df.repartition("SYMBOL").write.partitionBy("SYMBOL").csv(
+
+    final_df = final_df.withColumn("partition_key", F.col("SYMBOL")).select("partition_key", "SYMBOL", "MOMENT", "OPEN", "HIGH", "LOW", "CLOSE")
+
+    final_df.repartition("partition_key").write.partitionBy("partition_key").csv(
         temp_path, mode="overwrite", header=False
     )
 
     # Проходим по сгенерированным папкам SYMBOL=XXX
     for folder in os.listdir(temp_path):
         folder_path = os.path.join(temp_path, folder)
-        if os.path.isdir(folder_path) and folder.startswith("SYMBOL="):
+        if os.path.isdir(folder_path) and folder.startswith("partition_key="):
             symbol = folder.split("=", 1)[1]
             # Ищем CSV-файл в папке
             for file in os.listdir(folder_path):
