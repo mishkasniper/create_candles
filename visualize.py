@@ -10,7 +10,7 @@ def plot_candles_from_csv(width, csv_path, output_dir,
                          color_up='#77d879', color_down='#db3f3f'):
                          
     # Загрузка и подготовка данных
-    column_names = ['MOMENT', 'OPEN', 'HIGH', 'LOW', 'CLOSE']
+    column_names = ['SYMBOL', 'MOMENT', 'OPEN', 'HIGH', 'LOW', 'CLOSE']
     df = pd.read_csv(csv_path, header=None, names=column_names)
     
     # Проверка данных
